@@ -1,0 +1,39 @@
+// input packet encapsulation is IP
+
+// declarations
+fd :: FromDump("f3a.dump");
+rt0 :: LinearIPLookup(131.0.0.0/8 0,
+                     131.179.0.0/16 1,
+                     18.0.0.0/8 2,
+                     0/0 3);
+rt1 :: LinearIPLookup(131.0.0.0/8 0,
+                     131.179.0.0/16 1,
+                     18.0.0.0/8 2,
+                     0/0 3);
+chkip :: CheckIPHeader;
+ipclass :: IPClassifier(tcp, udp, icmp, -);
+chklen0 :: CheckLength(1500);
+chklen1 :: CheckLength(1500);
+chktcp :: CheckTCPHeader;
+chkudp :: CheckUDPHeader;
+chkicmp :: CheckICMPHeader;
+//dt :: DecIPTTL(ACTIVE false);
+tee :: Tee(2);
+dt0 :: DecIPTTL(ACTIVE false);
+dt1 :: DecIPTTL(ACTIVE true);
+tdb :: ToDump("f3b.dump", 0, IP);
+tdc :: ToDump("f3c.dump", 0, IP);
+tdd :: ToDump("f3d.dump", 0, IP);
+tde :: ToDump("f3e.dump", 0, IP);
+tdf :: ToDump("f3f.dump", 0, IP);
+icmperror :: ICMPError(0.0.0.0, 11);
+
+fd -> chkip -> ipclass -> chktcp;
+ipclass[1] -> chkudp;
+ipclass[2] -> chkicmp;
+chktcp, chkudp, chkicmp, ipclass[3] -> tee -> dt1[1] -> icmperror -> tdf;
+dt1[0] -> chklen0 -> rt0[3] -> tde;
+rt0[0, 1, 2] -> Discard;
+tee[1] -> dt0 -> chklen1 -> rt1[0, 1, 2] => tdb, tdc, tdd;
+rt1[3] -> Discard;
+Script(print "ok",stop);
